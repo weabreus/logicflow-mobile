@@ -3,5 +3,8 @@
   "compilerOptions": {
     "strict": true,
     "jsx": "react-native",
+    "lib": [
+      "es5", "es6", "dom", "DOM.Iterable"
+    ]
   }
 }
