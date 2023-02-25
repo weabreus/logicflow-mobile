@@ -8,12 +8,14 @@ const DeliveriesItem = (props: any) => {
   const navigation = useNavigation();
 
   const openDeliveryDetailsDelivery = useCallback(() => {
+    
     navigation.dispatch(
       CommonActions.navigate({
         name: "Detalles Entrega",
         merge: true,
         params: {
           task: props.taskId,
+          backKey: navigation.getState().key
         },
       })
     );
@@ -25,6 +27,7 @@ const DeliveriesItem = (props: any) => {
         merge: true,
         params: {
           task: props.taskId,
+          backKey: navigation.getState().key
         },
       })
     );
@@ -34,7 +37,7 @@ const DeliveriesItem = (props: any) => {
     <View>
       <Card style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.title}>{`Entrega #${props.taskId}`}</Text>
+          <Text style={styles.title}>{`Entrega ID-${props.taskId.slice(-10)}`}</Text>
           <Badge
             style={{ backgroundColor: props.status ? "#4caf50" : "#ab003c" }}
           >

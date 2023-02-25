@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import {
   Avatar,
@@ -9,150 +9,355 @@ import {
   IconButton,
   Text,
 } from "react-native-paper";
-import tasks from "../data/tasks";
-import { getStateFromPath } from "@react-navigation/native";
-import { CommonActions } from "@react-navigation/native";
-import CardTitle from "react-native-paper/lib/typescript/components/Card/CardTitle";
+import * as Location from "expo-location";
+import driverContext from "../context/context";
 
 const DeliveryDetails = (...props: any) => {
-  const task = tasks.filter((task) => task.id === props[0].route.params.task);
   const navigation = props[0].navigation;
+
+  const { setActiveTask, setDriverStatus } = useContext(driverContext);
+
+  const [task, setTask] = useState<any>();
+  const [taskStatus, setTaskStatus] = useState<
+    "pending" | "in process" | "completed"
+  >("pending");
+  const backKey = useMemo(() => props[0].route.params.backKey, []);
+  const taskId = useMemo(() => props[0].route.params.task, []);
+
+  const getDelivery = async (taskId: string) => {
+    let response;
+    try {
+      response = await fetch(
+        `${process.env.API_DOMAIN}/api/deliveries/${taskId}`,
+        {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    } catch (error) {
+      console.log({
+        status: 500,
+        error: error,
+      });
+    }
+
+    if (response?.ok) {
+      const data = await response.json();
+
+      // @ts-ignore
+      return data.data;
+    }
+  };
+
+  useEffect(() => {
+    (async () => {
+      const delivery = await getDelivery(taskId);
+
+      if (delivery) {
+        setTask(delivery[0]);
+        setTaskStatus(delivery[0].delivery.status);
+      }
+    })();
+  }, []);
+
+  const startTask = async (taskId: string) => {
+    let { status } = await Location.getForegroundPermissionsAsync();
+
+    if (status === "undetermined") {
+      let response = await Location.requestForegroundPermissionsAsync();
+
+      if (response.granted) {
+        // @ts-ignore
+        status = "granted";
+      }
+    }
+
+    if (status === "granted") {
+      let location = await Location.getCurrentPositionAsync({});
+
+      let response: any;
+
+      try {
+        response = await fetch(
+          `${process.env.API_DOMAIN}/api/deliveries/delivery/start`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              taskId: taskId,
+              location: {
+                lat: location.coords.latitude,
+                lng: location.coords.longitude,
+              },
+              timestamp: Date.now(),
+            }),
+          }
+        );
+      } catch (error) {
+        console.log({
+          status: 500,
+          error: error,
+        });
+      }
+
+      if (response.ok) {
+        const data = await response.json();
+
+        // @ts-ignore
+        console.log(data.message);
+        setTaskStatus("in process");
+        setDriverStatus!("busy");
+        setActiveTask!({
+          // @ts-ignore
+          id: task._id,
+          type: "delivery",
+        });
+
+        response = await fetch(
+          `${process.env.API_DOMAIN}/api/drivers/active/63f77a636ca022ad59149790`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "busy" }),
+          }
+        );
+
+        if (response.ok) {
+          console.log("Status updated.");
+        } else {
+          console.log("Couldn't update the status.");
+        }
+      }
+    }
+  };
+
+  const endTask = async () => {
+    let { status } = await Location.getForegroundPermissionsAsync();
+
+    if (status === "undetermined") {
+      let response = await Location.requestForegroundPermissionsAsync();
+
+      if (response.granted) {
+        // @ts-ignore
+        status = "granted";
+      }
+    }
+
+    if (status === "granted") {
+      let location = await Location.getCurrentPositionAsync({});
+
+      let response: any;
+
+      try {
+        response = await fetch(
+          `${process.env.API_DOMAIN}/api/deliveries/delivery/end`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              taskId: taskId,
+              location: {
+                lat: location.coords.latitude,
+                lng: location.coords.longitude,
+              },
+              timestamp: Date.now(),
+            }),
+          }
+        );
+      } catch (error) {
+        console.log({
+          status: 500,
+          error: error,
+        });
+      }
+
+      if (response.ok) {
+        const data = await response.json();
+
+        // @ts-ignore
+        console.log(data.message);
+        setTaskStatus("completed");
+        setDriverStatus!("active");
+        setActiveTask!(undefined);
+
+        response = await fetch(
+          `${process.env.API_DOMAIN}/api/drivers/active/63f77a636ca022ad59149790`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "active" }),
+          }
+        );
+
+        if (response.ok) {
+          console.log("Status updated.");
+        } else {
+          console.log("Couldn't update the status.");
+        }
+      }
+    }
+  };
 
   return (
     <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
       <View style={styles.container}>
-        <Card style={styles.card}>
-          <Card.Title
-            title={`Entrega #${task[0].id} - Entrega`}
-            titleStyle={{ alignItems: "center", fontWeight: "bold" }}
-            left={(props) => (
-              <Button onPress={() => navigation.goBack()}>
-                <Avatar.Icon
-                  color={"#000000"}
+        {task && (
+          <Card style={styles.card}>
+            <Card.Title
+              title={`Entrega ID-${task?._id.slice(-10)}`}
+              subtitle={"Entrega"}
+              titleStyle={{
+                alignItems: "center",
+                fontWeight: "bold",
+              }}
+              left={(props) =>
+                taskStatus !== "in process" && (
+                  // @ts-ignore
+                  <Button onPress={() => navigation.goBack(backKey)}>
+                    <Avatar.Icon
+                      color={"#000000"}
+                      size={40}
+                      icon="chevron-left"
+                      style={{ backgroundColor: "rgba(0, 0, 0, 0)" }}
+                    />
+                  </Button>
+                )
+              }
+              right={(props) => (
+                <IconButton
+                  icon="package-down"
+                  onPress={() => {}}
                   size={40}
-                  icon="chevron-left"
-                  style={{ backgroundColor: "rgba(0, 0, 0, 0)" }}
+                  iconColor={"#512da8"}
                 />
-              </Button>
-            )}
-            right={(props) => (
-              <IconButton
-                icon="package-down"
-                onPress={() => {}}
-                size={40}
-                iconColor={"#512da8"}
-              />
-            )}
-            leftStyle={{ marginLeft: -10, alignItems: "center" }}
-          />
+              )}
+              leftStyle={{ marginLeft: -10, alignItems: "center" }}
+            />
 
-          <Divider style={styles.divider} />
-          {/* Time line */}
-          <View style={styles.deliveryDetailLine}>
-            <View
-              style={{ flex: 1, flexDirection: "row", alignItems: "center" }}
-            >
-              <Avatar.Icon icon="clock-time-eight-outline" size={40} />
-              <Text style={styles.deliveryDetailLineText}>
-                {task[0]?.delivery_date} - {task[0].delivery_time}
-              </Text>
+            <Divider style={styles.divider} />
+            {/* Time line */}
+            <View style={styles.deliveryDetailLine}>
+              <View
+                style={{ flex: 1, flexDirection: "row", alignItems: "center" }}
+              >
+                <Avatar.Icon icon="clock-time-eight-outline" size={40} />
+                <Text style={styles.deliveryDetailLineText}>
+                  {task?.delivery?.datetime}
+                </Text>
+              </View>
+              <View>
+                <Badge
+                  style={{
+                    backgroundColor:
+                      taskStatus === "pending"
+                        ? "#ab003c"
+                        : taskStatus === "in process"
+                        ? "#ffee58"
+                        : "#4caf50",
+                  }}
+                >
+                  {taskStatus === "pending"
+                    ? "Pendiente"
+                    : taskStatus === "in process"
+                    ? "En Proceso"
+                    : "Completado"}
+                </Badge>
+              </View>
             </View>
-            <View>
-              <Badge
+
+            <Divider style={styles.divider} />
+
+            {/* Customer Contact */}
+            <View
+              style={{
+                ...styles.deliveryDetailLine,
+                justifyContent: "space-between",
+                width: "100%",
+              }}
+            >
+              <View style={{ ...styles.deliveryDetailLine }}>
+                <Avatar.Icon icon="account" size={40} />
+                <Text style={styles.deliveryDetailLineText}>
+                  {task?.delivery?.name}
+                </Text>
+              </View>
+              <View
                 style={{
-                  backgroundColor: props.delivery_status
-                    ? "#4caf50"
-                    : "#ab003c",
+                  ...styles.deliveryDetailLine,
+                  justifyContent: "flex-end",
                 }}
               >
-                {props.delivery_status ? "Completado" : "Pendiente"}
-              </Badge>
+                <Avatar.Icon
+                  icon={"message-outline"}
+                  size={40}
+                  style={{ margin: 2 }}
+                />
+                <Avatar.Icon icon={"phone"} size={40} style={{ margin: 2 }} />
+              </View>
             </View>
-          </View>
 
-          <Divider style={styles.divider} />
+            <Divider style={styles.divider} />
 
-          {/* Customer Contact */}
-          <View
-            style={{
-              ...styles.deliveryDetailLine,
-              justifyContent: "space-between",
-              width: "100%",
-            }}
-          >
-            <View style={{ ...styles.deliveryDetailLine }}>
-              <Avatar.Icon icon="account" size={40} />
-              <Text style={styles.deliveryDetailLineText}>
-                {task[0]?.delivery_name}
-              </Text>
-            </View>
+            {/* Directions */}
             <View
               style={{
                 ...styles.deliveryDetailLine,
-                justifyContent: "flex-end",
+                justifyContent: "space-between",
+                width: "100%",
               }}
             >
-              <Avatar.Icon
-                icon={"message-outline"}
-                size={40}
-                style={{ margin: 2 }}
-              />
-              <Avatar.Icon icon={"phone"} size={40} style={{ margin: 2 }} />
+              <View style={{ ...styles.deliveryDetailLine }}>
+                <Avatar.Icon icon="map-marker" size={40} />
+                <Text style={styles.deliveryDetailLineText}>
+                  {task?.delivery?.address}
+                </Text>
+              </View>
+              <View
+                style={{
+                  ...styles.deliveryDetailLine,
+                  justifyContent: "flex-end",
+                }}
+              >
+                <Avatar.Icon
+                  icon={"arrow-right-top-bold"}
+                  size={40}
+                  style={{ margin: 2 }}
+                />
+              </View>
             </View>
-          </View>
 
-          <Divider style={styles.divider} />
-
-          {/* Directions */}
-          <View
-            style={{
-              ...styles.deliveryDetailLine,
-              justifyContent: "space-between",
-              width: "100%",
-            }}
-          >
-            <View style={{ ...styles.deliveryDetailLine }}>
-              <Avatar.Icon icon="map-marker" size={40} />
-              <Text style={styles.deliveryDetailLineText}>
-                {task[0]?.delivery_address}
-              </Text>
-            </View>
+            <Divider style={styles.divider} />
+            {/* Description */}
             <View
               style={{
                 ...styles.deliveryDetailLine,
-                justifyContent: "flex-end",
+                justifyContent: "space-between",
+                width: "100%",
               }}
             >
-              <Avatar.Icon
-                icon={"arrow-right-top-bold"}
-                size={40}
-                style={{ margin: 2 }}
-              />
+              <View style={{ ...styles.deliveryDetailLine }}>
+                <Avatar.Icon icon="information-outline" size={40} />
+                <Text
+                  style={{ ...styles.deliveryDetailLineText, flexShrink: 1 }}
+                >
+                  {task?.delivery?.address}
+                </Text>
+              </View>
             </View>
-          </View>
 
-          <Divider style={styles.divider} />
-          {/* Description */}
-          <View
-            style={{
-              ...styles.deliveryDetailLine,
-              justifyContent: "space-between",
-              width: "100%",
-            }}
-          >
-            <View style={{ ...styles.deliveryDetailLine }}>
-              <Avatar.Icon icon="information-outline" size={40} />
-              <Text style={styles.deliveryDetailLineText}>
-                {task[0]?.delivery_address}
-              </Text>
-            </View>
-          </View>
-
-          <Divider style={styles.divider} />
-          <Card.Actions style={styles.actions}>
-            <Button>Confirmar Entrega</Button>
-          </Card.Actions>
-        </Card>
+            <Divider style={styles.divider} />
+            <Card.Actions style={styles.actions}>
+              {taskStatus === "pending" && (
+                <Button onPress={() => startTask(task._id)}>
+                  Iniciar entrega
+                </Button>
+              )}
+              {taskStatus === "in process" && (
+                <Button onPress={() => endTask()}>Confirmar entrega</Button>
+              )}
+            </Card.Actions>
+          </Card>
+        )}
       </View>
     </ScrollView>
   );
@@ -169,7 +374,7 @@ const styles = StyleSheet.create({
   card: {
     width: "100%",
     height: "100%",
-    padding: 15,
+    padding: 10,
     flex: 1,
   },
   cardTitle: {
@@ -186,12 +391,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  deliveryDetailLineText: {
-    fontSize: 16,
-    fontWeight: "normal",
-    marginLeft: 6,
-    flex: 1,
-  },
+  deliveryDetailLineText: { fontSize: 16, fontWeight: "normal", marginLeft: 6 },
   divider: {
     marginVertical: 20,
   },
