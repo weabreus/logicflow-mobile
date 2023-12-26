@@ -13,6 +13,7 @@ import PickupDetails from "./components/PickupDetails";
 import * as Location from "expo-location";
 import AvailableDeliveries from "./pages/AvailableDeliveries";
 import driverContext from "./context/context";
+import {API_DOMAIN} from "@env";
 
 export default function App() {
   
@@ -24,6 +25,7 @@ export default function App() {
   useEffect(() => {
     const updateCoords = async () => {
       // Only get coords if the driver is active
+      
       if (driverStatus === "active" || driverStatus === "busy") {
         let { status } = await Location.getForegroundPermissionsAsync();
         
@@ -44,11 +46,11 @@ export default function App() {
     };
     updateCoords();
     setInterval(updateCoords, 60000);
-  }, []);
+  }, [driverStatus, activeTask]);
 
   const sendLocation = async (latitude: number, longitude: number) => {
     const response = await fetch(
-      `${process.env.API_DOMAIN}/api/drivers/position/${driver}`,
+      `${API_DOMAIN}/api/drivers/position/${driver}`,
       {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },

@@ -38,6 +38,7 @@ const DeliveriesItem = (props: any) => {
       <Card style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>{`Entrega ID-${props.taskId.slice(-10)}`}</Text>
+          
           <Badge
             style={{ backgroundColor: props.status ? "#4caf50" : "#ab003c" }}
           >

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useContext, useState } from "react";
 import { DrawerContentScrollView } from "@react-navigation/drawer";
 import { Drawer, Switch } from "react-native-paper";
 import {
@@ -13,6 +13,8 @@ import {
 } from "@react-navigation/drawer/lib/typescript/src/types";
 import { View, Text, StyleSheet } from "react-native";
 import Config from 'react-native-config'
+import driverContext from "../context/context";
+import { API_DOMAIN } from "@env";
 
 const SideMenu: React.FC<{
   state: DrawerNavigationState<ParamListBase>;
@@ -23,19 +25,24 @@ const SideMenu: React.FC<{
 }> = ({ state, navigation, descriptors, status, setDriverStatus }) => {
   
   const [isActive, setIsActive] = useState(status === "active" || status === "busy" ? true : false)
+  const { driver } = useContext(driverContext)
+  
   const onToggleIsActive = async () => {
     let currentStatus
     switch (status) {
       case "active":
+        console.log('active')
         setIsActive(false)
         currentStatus = 'inactive'
         setDriverStatus('inactive')
         break;
       case "busy":
+        console.log('busy')
         setIsActive(false)
         currentStatus = 'inactive'
         setDriverStatus('inactive')
       case "inactive":
+        
         setIsActive(true)
         currentStatus = 'active'
         setDriverStatus('active')
@@ -44,7 +51,7 @@ const SideMenu: React.FC<{
     }
 
     const response = await fetch(
-      `${process.env.API_DOMAIN}/api/drivers/active/63f77a636ca022ad59149790`,
+      `${API_DOMAIN}/api/drivers/active/${driver}`,
       {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },

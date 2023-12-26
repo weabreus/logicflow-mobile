@@ -4,13 +4,15 @@ import DeliveriesItem from "../components/DeliveriesItem";
 import { Button } from "react-native-paper";
 import Config from 'react-native-config';
 import driverContext from "../context/context";
+import { NavigationProp } from "@react-navigation/native";
+import { API_DOMAIN } from "@env";
 
 const getDeliveries = async () => {
   let response;
 
   try {
     response = await fetch(
-      `${process.env.API_DOMAIN}/api/deliveries/deliveries/`,
+      `${API_DOMAIN}/api/deliveries/deliveries/`,
       {
         method: "GET",
         headers: { "Content-Type": "application/json" },
@@ -31,22 +33,26 @@ const getDeliveries = async () => {
 
 };
 
-const AvailableDeliveries = () => {
+const AvailableDeliveries: React.FC<{navigation: NavigationProp<ReactNavigation.RootParamList>}> = ({navigation}) => {
     const { driver } = useContext(driverContext)
     const [deliveries, setDeliveries] = useState([])
 
     useEffect(() => {
-    (async () => {
-        const deliveries = await getDeliveries()
-        setDeliveries(deliveries)
-    })()
-    }, [])
+    
+      const focusHandler = navigation.addListener('focus', async () => {
+  
+        const deliveriesList = await getDeliveries()
+        setDeliveries(deliveriesList)
+      })
+      return focusHandler
+  
+    }, [navigation])
 
     const assignDriver = async (taskId: string, driverId: string) => {
       let response;
       try {
         response = await fetch(
-          `${process.env.API_DOMAIN}/api/deliveries/assign/`,
+          `${API_DOMAIN}/api/deliveries/assign/`,
           {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },

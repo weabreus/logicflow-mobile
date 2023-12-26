@@ -11,11 +11,12 @@ import {
 } from "react-native-paper";
 import * as Location from "expo-location";
 import driverContext from "../context/context";
+import { API_DOMAIN } from "@env";
 
 const DeliveryDetails = (...props: any) => {
   const navigation = props[0].navigation;
 
-  const { setActiveTask, setDriverStatus } = useContext(driverContext);
+  const { driver, setActiveTask, setDriverStatus } = useContext(driverContext);
 
   const [task, setTask] = useState<any>();
   const [taskStatus, setTaskStatus] = useState<
@@ -28,7 +29,7 @@ const DeliveryDetails = (...props: any) => {
     let response;
     try {
       response = await fetch(
-        `${process.env.API_DOMAIN}/api/deliveries/${taskId}`,
+        `${API_DOMAIN}/api/deliveries/${taskId}`,
         {
           method: "GET",
           headers: { "Content-Type": "application/json" },
@@ -50,15 +51,20 @@ const DeliveryDetails = (...props: any) => {
   };
 
   useEffect(() => {
-    (async () => {
+
+    const focusHandler = navigation.addListener('focus', async () => {
+
       const delivery = await getDelivery(taskId);
 
       if (delivery) {
         setTask(delivery[0]);
         setTaskStatus(delivery[0].delivery.status);
       }
-    })();
-  }, []);
+    })
+    
+
+    return focusHandler
+  }, [navigation]);
 
   const startTask = async (taskId: string) => {
     let { status } = await Location.getForegroundPermissionsAsync();
@@ -79,7 +85,7 @@ const DeliveryDetails = (...props: any) => {
 
       try {
         response = await fetch(
-          `${process.env.API_DOMAIN}/api/deliveries/delivery/start`,
+          `${API_DOMAIN}/api/deliveries/delivery/start`,
           {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -114,7 +120,7 @@ const DeliveryDetails = (...props: any) => {
         });
 
         response = await fetch(
-          `${process.env.API_DOMAIN}/api/drivers/active/63f77a636ca022ad59149790`,
+          `${API_DOMAIN}/api/drivers/active/${driver}`,
           {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -150,7 +156,7 @@ const DeliveryDetails = (...props: any) => {
 
       try {
         response = await fetch(
-          `${process.env.API_DOMAIN}/api/deliveries/delivery/end`,
+          `${API_DOMAIN}/api/deliveries/delivery/end`,
           {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -181,7 +187,7 @@ const DeliveryDetails = (...props: any) => {
         setActiveTask!(undefined);
 
         response = await fetch(
-          `${process.env.API_DOMAIN}/api/drivers/active/63f77a636ca022ad59149790`,
+          `${API_DOMAIN}/api/drivers/active/${driver}`,
           {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },

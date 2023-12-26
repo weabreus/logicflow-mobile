@@ -1,16 +1,18 @@
-import React, { useContext, useEffect, useState } from 'react'
+import React, { useCallback, useContext, useEffect, useState } from 'react'
 import {ScrollView, FlatList, View, StyleSheet} from 'react-native'
 import { Text, } from 'react-native-paper'
 import DeliveriesItem from '../components/DeliveriesItem'
 import driverContext from '../context/context';
+import { NavigationProp, useFocusEffect, useNavigation } from '@react-navigation/native';
+import { API_DOMAIN } from '@env';
 
 const getDeliveries = async (driverId: string) => {
   let response;
 
   try {
-    console.log(process.env.API_DOMAIN)
+   
     response = await fetch(
-      `${process.env.API_DOMAIN}/api/deliveries/deliveries/`,
+      `${API_DOMAIN}/api/deliveries/deliveries/`,
       {
         method: "GET",
         headers: { "Content-Type": "application/json" },
@@ -36,21 +38,28 @@ const getDeliveries = async (driverId: string) => {
 };
 
 const Deliveries = () => {
+  
   const { driver } = useContext(driverContext)
   const [deliveries, setDeliveries] = useState([])
 
-  useEffect(() => {
-    (async () => {
+  useFocusEffect(
+    useCallback(() => {
+    console.log('Requested deliveries')
+    
+    const fetchDeliveries = async () => {
       const deliveriesList = await getDeliveries(driver)
       setDeliveries(deliveriesList)
-    })()
-  }, [])
+    }
+
+    fetchDeliveries()
+
+  }, [driver]))
 
   return (
     <>
     <View style={styles.container}>
         {/* @ts-ignore */}
-        <FlatList data={deliveries} renderItem={({item}) => <DeliveriesItem taskId={item._id} status={item.task_status} pickup_address={item.pickup.address} delivery_address={item.delivery.address} />} keyExtractor={task => task._id}/>
+        <FlatList data={deliveries} renderItem={({item}) => <DeliveriesItem taskId={item._id} status={item.status} pickup_address={item.pickup.address} delivery_address={item.delivery.address} />} keyExtractor={task => task._id}/>
     </View>
     </>
   )
